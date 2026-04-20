@@ -1,0 +1,419 @@
+{
+  "name": "Academy Assistant - Webhook RAG Escalation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "academy-assistant",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Incoming Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst query = body.query ?? body.message ?? body.text ?? '';\n\nreturn [{\n  json: {\n    query: String(query).trim(),\n    user_id: body.user_id ?? body.chat_id ?? body.from ?? 'unknown',\n    user_name: body.user_name ?? body.name ?? 'unknown',\n    channel: body.channel ?? 'webhook',\n    raw_input: body\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.query}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "3",
+      "name": "Has Query?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        740,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "Debes enviar la consulta en el campo 'query', 'message' o 'text'."
+            },
+            {
+              "name": "reason",
+              "value": "Solicitud sin texto"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "escalate",
+              "value": false
+            }
+          ],
+          "json": [
+            {
+              "name": "sources",
+              "value": "=[]"
+            }
+          ]
+        }
+      },
+      "id": "4",
+      "name": "Invalid Request Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        980,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ASSISTANT_API_URL || 'http://host.docker.internal:8000/chat/'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET || ''}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { query: $json.query } }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "5",
+      "name": "Ask FastAPI RAG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        220
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const normalized = $('Normalize Input').first().json;\nconst upstream = $json;\n\nif (upstream.error) {\n  return [{\n    json: {\n      query: normalized.query,\n      user_id: normalized.user_id,\n      user_name: normalized.user_name,\n      channel: normalized.channel,\n      answer: 'Escalando a un agente humano.',\n      escalate: true,\n      reason: 'No fue posible consultar la API RAG',\n      sources: [],\n      human_message: `Fallo la consulta al backend RAG.\\nPregunta: ${normalized.query}\\nCanal: ${normalized.channel}\\nUsuario: ${normalized.user_name} (${normalized.user_id})\\nError: ${upstream.error.message || JSON.stringify(upstream.error)}`\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    query: normalized.query,\n    user_id: normalized.user_id,\n    user_name: normalized.user_name,\n    channel: normalized.channel,\n    answer: upstream.answer ?? 'Escalando a un agente humano.',\n    escalate: Boolean(upstream.escalate),\n    reason: upstream.reason ?? '',\n    sources: upstream.sources ?? [],\n    human_message: `Nueva consulta para revision humana.\\nPregunta: ${normalized.query}\\nCanal: ${normalized.channel}\\nUsuario: ${normalized.user_name} (${normalized.user_id})\\nMotivo: ${upstream.reason ?? 'Fuera de scope o sin suficiente contexto documental'}`\n  }\n}];"
+      },
+      "id": "6",
+      "name": "Prepare Routing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.escalate}}",
+              "operation": "isTrue"
+            }
+          ]
+        }
+      },
+      "id": "7",
+      "name": "Escalate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SLACK_WEBHOOK_URL}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { text: $json.human_message } }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "8",
+      "name": "Notify Human",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1700,
+        120
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{$item(0).$node['Prepare Routing'].json.answer}}"
+            },
+            {
+              "name": "reason",
+              "value": "={{$item(0).$node['Prepare Routing'].json.reason}}"
+            },
+            {
+              "name": "status",
+              "value": "escalated"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "escalate",
+              "value": true
+            }
+          ],
+          "json": [
+            {
+              "name": "sources",
+              "value": "={{$item(0).$node['Prepare Routing'].json.sources}}"
+            }
+          ]
+        }
+      },
+      "id": "9",
+      "name": "Escalated Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1940,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{$json.answer}}"
+            },
+            {
+              "name": "reason",
+              "value": ""
+            },
+            {
+              "name": "status",
+              "value": "answered"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "escalate",
+              "value": false
+            }
+          ],
+          "json": [
+            {
+              "name": "sources",
+              "value": "={{$json.sources}}"
+            }
+          ]
+        }
+      },
+      "id": "10",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Webhook HTTP de entrada para consultas. Espera `query`, `message` o `text` en el body.",
+        "height": 220,
+        "width": 280
+      },
+      "id": "11",
+      "name": "Note Input",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        200,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Asegura entrada valida y envia la pregunta a tu API Python/LangChain en `/chat`.",
+        "height": 220,
+        "width": 300
+      },
+      "id": "12",
+      "name": "Note RAG",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        900,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Si `escalate=true` o falla la API, notifica a humano por Slack webhook y devuelve una respuesta de escalamiento.",
+        "height": 220,
+        "width": 360
+      },
+      "id": "13",
+      "name": "Note Escalation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1640,
+        20
+      ]
+    }
+  ],
+  "connections": {
+    "Incoming Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Has Query?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Query?": {
+      "main": [
+        [
+          {
+            "node": "Ask FastAPI RAG",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Request Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask FastAPI RAG": {
+      "main": [
+        [
+          {
+            "node": "Prepare Routing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Routing": {
+      "main": [
+        [
+          {
+            "node": "Escalate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate?": {
+      "main": [
+        [
+          {
+            "node": "Notify Human",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Human": {
+      "main": [
+        [
+          {
+            "node": "Escalated Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "academy-assistant-webhook-rag-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "id": "academy-assistant-webhook-rag",
+  "tags": []
+}
