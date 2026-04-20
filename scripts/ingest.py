@@ -8,9 +8,8 @@ sys.path.append(str(root))
 
 from src.data.loaders import load_documents, split_documents
 from langchain_chroma import Chroma
-from langchain.docstore.document import Document
 from src.core.llm import get_embeddings
-import os
+from src.core.vectorstore import get_chroma_settings
 
 
 def main():
@@ -28,7 +27,8 @@ def main():
     Chroma.from_documents(
         documents=splits,
         embedding=embeddings,
-        persist_directory="./chroma_db"
+        persist_directory="./chroma_db",
+        client_settings=get_chroma_settings(),
     )
     print("✅ Ingest complete! Vectorstore ready at ./chroma_db")
 
