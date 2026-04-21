@@ -1,20 +1,28 @@
 """Vector store management with ChromaDB."""
+import os
+
 from langchain_chroma import Chroma
 from langchain.docstore.document import Document
 from chromadb.config import Settings as ChromaSettings
 from ..config.settings import settings
 from .llm import get_embeddings
-import os
 
 
-def get_chroma_settings() -> ChromaSettings:
+def get_chroma_settings(persist_directory: str | None = None) -> ChromaSettings:
     """Disable noisy Chroma telemetry in local development."""
-    return ChromaSettings(anonymized_telemetry=False)
+    persist_directory = os.path.abspath(persist_directory or settings.chroma_path)
+    return ChromaSettings(
+        is_persistent=True,
+        persist_directory=persist_directory,
+        anonymized_telemetry=False,
+        chroma_product_telemetry_impl="src.core.chroma_telemetry.NoOpTelemetryClient",
+        chroma_telemetry_impl="src.core.chroma_telemetry.NoOpTelemetryClient",
+    )
 
 
 def get_vectorstore() -> Chroma:
     """Get or create Chroma vector store."""
-    chroma_path = settings.chroma_path
+    chroma_path = os.path.abspath(settings.chroma_path)
     if not os.path.exists(chroma_path):
         raise ValueError(f"Vectorstore not found at {chroma_path}. Run ingest.py first.")
     
@@ -22,7 +30,7 @@ def get_vectorstore() -> Chroma:
     return Chroma(
         persist_directory=chroma_path,
         embedding_function=embeddings,
-        client_settings=get_chroma_settings(),
+        client_settings=get_chroma_settings(chroma_path),
     )
 
 

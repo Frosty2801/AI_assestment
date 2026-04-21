@@ -10,6 +10,7 @@ from src.data.loaders import load_documents, split_documents
 from langchain_chroma import Chroma
 from src.core.llm import get_embeddings
 from src.core.vectorstore import get_chroma_settings
+from src.config.settings import settings
 
 
 def main():
@@ -24,13 +25,14 @@ def main():
 
     print("Creating embeddings and storing in Chroma...")
     embeddings = get_embeddings()
+    persist_directory = str((root / settings.chroma_path).resolve())
     Chroma.from_documents(
         documents=splits,
         embedding=embeddings,
-        persist_directory="./chroma_db",
-        client_settings=get_chroma_settings(),
+        persist_directory=persist_directory,
+        client_settings=get_chroma_settings(persist_directory),
     )
-    print("✅ Ingest complete! Vectorstore ready at ./chroma_db")
+    print(f"✅ Ingest complete! Vectorstore ready at {persist_directory}")
 
 
 if __name__ == "__main__":

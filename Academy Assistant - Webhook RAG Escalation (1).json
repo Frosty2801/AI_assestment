@@ -3,26 +3,9 @@
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "academy-assistant",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "4aa2eda1-ffe3-4c12-8edd-ed843c3bd6ca",
-      "name": "Incoming Webhook",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [
-        -1408,
-        288
-      ],
-      "webhookId": "7401d8f2-e911-431f-8a1e-4d9c60ce17f8"
-    },
-    {
-      "parameters": {
         "jsCode": "const body = $json.body ?? $json;\nconst query = body.query ?? body.message ?? body.text ?? '';\n\nreturn [{\n  json: {\n    query: String(query).trim(),\n    user_id: body.user_id ?? body.chat_id ?? body.from ?? 'unknown',\n    user_name: body.user_name ?? body.name ?? 'unknown',\n    channel: body.channel ?? 'webhook',\n    raw_input: body\n  }\n}];"
       },
-      "id": "7346bcdd-6cdf-46fe-93d3-5eed08575e67",
+      "id": "0968d15f-8983-4b78-b841-94a7bb94f129",
       "name": "Normalize Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -43,7 +26,7 @@
         },
         "options": {}
       },
-      "id": "b8203ba1-c65a-4854-ae51-73e93444dfa4",
+      "id": "65b6a602-18c1-4d9e-bfa4-38e1f0623f19",
       "name": "Has Query?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -56,7 +39,7 @@
       "parameters": {
         "options": {}
       },
-      "id": "2732594e-c220-4f2f-89a5-091855c2745a",
+      "id": "a43b35d5-fc16-41b9-8464-56e6c84d74a5",
       "name": "Invalid Request Response",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -79,7 +62,7 @@
           "timeout": 30000
         }
       },
-      "id": "6c6d2223-7dd3-4cbc-9309-3612dee10b98",
+      "id": "b4d74675-a6fd-4e92-8a09-b09a2c29b97a",
       "name": "Ask FastAPI RAG",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -93,7 +76,7 @@
       "parameters": {
         "jsCode": "const normalized = $('Normalize Input').first().json;\nconst upstream = $json;\n\nif (upstream.error) {\n  return [{\n    json: {\n      query: normalized.query,\n      user_id: normalized.user_id,\n      user_name: normalized.user_name,\n      channel: normalized.channel,\n      answer: 'Escalando a un agente humano.',\n      escalate: true,\n      reason: 'No fue posible consultar la API RAG',\n      sources: [],\n      human_message: `Fallo la consulta al backend RAG.\\nPregunta: ${normalized.query}\\nCanal: ${normalized.channel}\\nUsuario: ${normalized.user_name} (${normalized.user_id})\\nError: ${upstream.error.message || JSON.stringify(upstream.error)}`\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    query: normalized.query,\n    user_id: normalized.user_id,\n    user_name: normalized.user_name,\n    channel: normalized.channel,\n    answer: upstream.answer ?? 'Escalando a un agente humano.',\n    escalate: Boolean(upstream.escalate),\n    reason: upstream.reason ?? '',\n    sources: upstream.sources ?? [],\n    human_message: `Nueva consulta para revision humana.\\nPregunta: ${normalized.query}\\nCanal: ${normalized.channel}\\nUsuario: ${normalized.user_name} (${normalized.user_id})\\nMotivo: ${upstream.reason ?? 'Fuera de scope o sin suficiente contexto documental'}`\n  }\n}];"
       },
-      "id": "95306bfe-a03d-4b52-831e-f24b33717286",
+      "id": "832c34ee-e2b1-42a9-9816-100f30132484",
       "name": "Prepare Routing",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -114,7 +97,7 @@
         },
         "options": {}
       },
-      "id": "105739ef-6cce-4bda-96ab-baaa678fed61",
+      "id": "e57a7d06-3c07-4072-9fa5-def05f91b539",
       "name": "Escalate?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -143,7 +126,7 @@
           "timeout": 15000
         }
       },
-      "id": "8c4ef789-adf9-4262-beb8-8dbab1b85700",
+      "id": "ad219c72-790b-4af6-adc8-ab5fab2a4a02",
       "name": "Notify Human",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -157,7 +140,7 @@
       "parameters": {
         "options": {}
       },
-      "id": "0a0e2fc7-b7af-4633-ae65-9ad8d0901863",
+      "id": "a5c8f0b4-6580-455f-93f8-d40a9ac1f43a",
       "name": "Escalated Response",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -170,7 +153,7 @@
       "parameters": {
         "options": {}
       },
-      "id": "ea371cb0-a43c-46c5-930a-b8253dc4f7c7",
+      "id": "97a6da68-6a9c-4e1f-a0fa-908dc568fd18",
       "name": "Success Response",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -185,7 +168,7 @@
         "height": 220,
         "width": 280
       },
-      "id": "398ed8c6-eba3-432b-b254-c127504a030a",
+      "id": "d18d3c60-0592-40ab-b423-1860e8f7c7c1",
       "name": "Note Input",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
@@ -200,7 +183,7 @@
         "height": 220,
         "width": 300
       },
-      "id": "08b92d11-2de7-4ead-b784-81ec8cd7c27b",
+      "id": "d55775d5-62d3-40ab-9e09-6c1f6e269dd6",
       "name": "Note RAG",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
@@ -215,7 +198,7 @@
         "height": 220,
         "width": 360
       },
-      "id": "b47ece6d-695e-49bc-adf9-2ccbde7f23ab",
+      "id": "60aa3c01-8b72-4dd9-bc39-3bf82b781541",
       "name": "Note Escalation",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
@@ -223,21 +206,27 @@
         0,
         0
       ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "academy-assistant",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1376,
+        288
+      ],
+      "id": "0fde4ffd-68a1-4f8e-acff-51c0a9c7c313",
+      "name": "Webhook",
+      "webhookId": "2bbee5f7-5bed-470e-9eb3-8f0d728bb27e"
     }
   ],
   "pinData": {},
   "connections": {
-    "Incoming Webhook": {
-      "main": [
-        [
-          {
-            "node": "Normalize Input",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Normalize Input": {
       "main": [
         [
@@ -317,6 +306,17 @@
           }
         ]
       ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -324,10 +324,10 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "de783700-5966-4709-98ba-6b79ca2aca21",
+  "versionId": "08856fd8-bd48-4a3d-adde-e519e6bd07ef",
   "meta": {
-    "instanceId": "c664c55875f6c8cc49d41d5b9db0a596a93ead500e7de7ca9619794932f8ba41"
+    "instanceId": "97b0bc369da51e9f2be4aa61d99e98bb9ced089c812165b684dd28f3d661ebcd"
   },
-  "id": "Mqi5G9s7ChgYangB",
+  "id": "KFNwUh8n4IXJIa5o",
   "tags": []
 }
