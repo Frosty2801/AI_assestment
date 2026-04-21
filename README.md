@@ -48,7 +48,7 @@ Core components:
 - [src/core/llm.py](/home/cohorte5/Escritorio/AI_assestment/src/core/llm.py:1): Ollama LLM and embedding clients
 - [src/core/vectorstore.py](/home/cohorte5/Escritorio/AI_assestment/src/core/vectorstore.py:1): Chroma loading and similarity search
 - [scripts/ingest.py](/home/cohorte5/Escritorio/AI_assestment/scripts/ingest.py:1): document ingestion
-- [Academy Assistant - Webhook RAG Escalation (1).json](/home/cohorte5/Escritorio/AI_assestment/Academy Assistant - Webhook RAG Escalation (1).json): automation flow
+- [n8n-workflow.json](/home/cohorte5/Escritorio/AI_assestment/n8n-workflow.json:1): automation flow
 
 ## ✅ Prerequisites
 
