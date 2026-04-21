@@ -22,6 +22,7 @@ RAG assistant for a language academy built with Python, FastAPI, LangChain, Olla
 - [Architecture](#-architecture)
 - [Prerequisites](#-prerequisites)
 - [Quick Start](#-quick-start)
+- [Docker](#-docker)
 - [Configuration](#-configuration)
 - [Usage](#-usage)
 - [n8n Workflow](#-n8n-workflow)
@@ -81,11 +82,13 @@ Example:
 
 ```env
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2:latest
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+OLLAMA_MODEL=llama3.2:3b
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text:latest
 N8N_WEBHOOK_SECRET=secret123
 TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
 CHROMA_PATH=./chroma_db
+RETRIEVAL_K=5
+RETRIEVAL_SCORE_THRESHOLD=0.35
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/your/slack/webhook
 ```
 
@@ -122,6 +125,56 @@ Open:
 - `http://localhost:8000/docs`
 - `http://localhost:8000/health`
 
+## 🐳 Docker
+
+The repository includes:
+
+- [Dockerfile](/home/cohorte5/Escritorio/AI_assestment/Dockerfile:1) for FastAPI
+- [docker-compose.yml](/home/cohorte5/Escritorio/AI_assestment/docker-compose.yml:1) for `api + n8n`
+- [.dockerignore](/home/cohorte5/Escritorio/AI_assestment/.dockerignore:1) to keep the image smaller
+
+This setup assumes `Ollama` continues running on the host machine.
+
+### 1. Start Ollama on the host
+
+```bash
+ollama serve
+```
+
+Make sure the required models exist:
+
+```bash
+ollama pull llama3.2:3b
+ollama pull nomic-embed-text
+```
+
+### 2. Build and start the containers
+
+```bash
+docker compose up --build -d
+```
+
+This starts:
+
+- FastAPI at `http://localhost:8000`
+- `n8n` at `http://localhost:5678`
+
+### 3. Run document ingestion against the API container settings
+
+If you want the vector store to be generated for the containerized API, run:
+
+```bash
+docker compose run --rm api python scripts/ingest.py
+```
+
+The generated vectors are persisted in the local `chroma_db/` folder through the mounted volume.
+
+### 4. Stop the stack
+
+```bash
+docker compose down
+```
+
 ## ⚙️ Configuration
 
 Environment variables used by the project:
@@ -134,6 +187,8 @@ Environment variables used by the project:
 | `N8N_WEBHOOK_SECRET` | Optional secret shared with `n8n` |
 | `TELEGRAM_BOT_TOKEN` | Present in settings, not required for the current webhook workflow |
 | `CHROMA_PATH` | Local path to the vector store |
+| `RETRIEVAL_K` | Number of chunks retrieved before filtering |
+| `RETRIEVAL_SCORE_THRESHOLD` | Minimum relevance score required to answer without escalation |
 | `SLACK_WEBHOOK_URL` | Optional webhook for escalation notifications |
 
 ## 🔧 Usage
@@ -202,6 +257,12 @@ If `n8n` runs in Docker and FastAPI runs on your host:
 
 ```text
 http://host.docker.internal:8000/chat/
+```
+
+If you use the provided `docker-compose.yml`, `n8n` should call the API container with:
+
+```text
+http://api:8000/chat/
 ```
 
 4. Send a test request:
@@ -278,6 +339,7 @@ Current tests cover:
 - Escalation detection is based on simple response keywords and can be improved
 - Metrics are stored in memory and reset when the API restarts
 - Model choice depends on available machine RAM
+- The Docker setup expects Ollama to run on the host, not inside the Compose stack
 
 ## 🤝 Contributing
 

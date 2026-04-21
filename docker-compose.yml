@@ -1,0 +1,40 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: academy-assistant-api
+    env_file:
+      - .env
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      CHROMA_PATH: /app/chroma_db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./chroma_db:/app/chroma_db
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: academy-assistant-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      ASSISTANT_API_URL: http://api:8000/chat/
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
